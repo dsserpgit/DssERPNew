@@ -71,7 +71,8 @@ doctype_js = {
 # ------------
 
 # before_install = "dsserp.install.before_install"
-# after_install = "dsserp.install.after_install"
+after_install = "dsserp.migrate.after_migrate"
+after_migrate = "dsserp.migrate.after_migrate"
 
 # Uninstallation
 # ------------
