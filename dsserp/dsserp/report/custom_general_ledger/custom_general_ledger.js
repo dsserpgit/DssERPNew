@@ -9,7 +9,21 @@ frappe.query_reports["Custom General Ledger"] = {
 			"fieldtype": "Link",
 			"options": "Company",
 			"default": frappe.defaults.get_user_default("Company"),
-			"reqd": 1
+			"reqd": 1,
+			on_change: async function(){
+				if(frappe.query_report.get_filter_value("account") == frappe.query_reports["Custom General Ledger"]["default_accounts"]){
+					frappe.query_reports["Custom General Ledger"]["default_accounts"] = await frappe.db.get_list("Account", {
+						filters: {
+							"account_name": ["in", ["Tax Assets", "Indirect Expenses"]],
+							"company": frappe.query_report.get_filter_value("company")
+						},
+						pluck: "name"
+					})
+
+					frappe.query_report.set_filter_value("account", frappe.query_reports["Custom General Ledger"]["default_accounts"])
+
+				}
+			}
 		},
 		{
 			"fieldname":"finance_book",
@@ -198,21 +212,9 @@ frappe.query_reports["Custom General Ledger"] = {
 			"fieldname": "show_remarks",
 			"label": __("Show Remarks"),
 			"fieldtype": "Check"
-		},
-		{
-			"fieldname": "test1",
-			"label": __("DocType"),
-			"fieldtype": "Link",
-			"options": "DocType"
-		},
-		{
-			"fieldname": "test2",
-			"label": __("Docname"),
-			"fieldtype": "Dynamic Link",
-			"options": "test1"
 		}
 	],
-	onload: function(){
+	onload: async function(){
 		frappe.call({
 			method: "dsserp.dsserp.report.custom_general_ledger.custom_general_ledger.get_employee_name_map",
 			async: false,
@@ -220,6 +222,16 @@ frappe.query_reports["Custom General Ledger"] = {
 				frappe.query_reports["Custom General Ledger"]["employee_name_map"] = r.message
 			}
 		})
+		frappe.query_reports["Custom General Ledger"]["default_accounts"] = await frappe.db.get_list("Account", {
+			filters: {
+				"account_name": ["in", ["Tax Assets", "Indirect Expenses"]],
+				"company": frappe.query_report.get_filter_value("company")
+			},
+			pluck: "name"
+		})
+		if(!frappe.query_report.get_filter_value("account") || !frappe.query_report.get_filter_value("account").length){
+			frappe.query_report.set_filter_value("account", frappe.query_reports["Custom General Ledger"]["default_accounts"])
+		}
 	},
 	formatter: function(value, row, column, data, default_formatter) {
 		if(column.fieldname == "party" && frappe.query_reports["Custom General Ledger"]["employee_name_map"][value]){

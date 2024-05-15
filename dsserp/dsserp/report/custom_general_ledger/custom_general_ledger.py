@@ -501,6 +501,7 @@ def get_result_as_list(data, filters):
 	balance, balance_in_account_currency = 0, 0
 	inv_details = get_supplier_invoice_details()
 	extra_fields = get_extra_fields()
+	expense_claim_wise_employee = get_expense_calim_wise_employee()
 
 	for d in data:
 		if not d.get("posting_date"):
@@ -512,6 +513,10 @@ def get_result_as_list(data, filters):
 		d["account_currency"] = filters.account_currency
 		d["bill_no"] = inv_details.get(d.get("against_voucher"), "")
 		d.update(extra_fields.get(d.get("voucher_no"), {}).get(d.get("account"), {}))
+
+		if d.get("voucher_type") == "Expense Claim" and not d.get("party_type") and not d.get("party"):
+			d["party_type"] = "Employee"
+			d["party"] = expense_claim_wise_employee.get(d["voucher_no"])
 
 	return data
 
@@ -601,6 +606,11 @@ def get_extra_fields():
 		vchr_account_wise_values.setdefault(d.get("expense_claim"), {}).setdefault(d.get("default_account"), d)
 	return vchr_account_wise_values
 
+def get_expense_calim_wise_employee():
+	exp_clm_wise_emp_map = {}
+	for i in frappe.get_all("Expense Claim", fields=["name", "employee"]):
+		exp_clm_wise_emp_map[i["name"]] = i["employee"]
+	return exp_clm_wise_emp_map
 
 def get_balance(row, balance, debit_field, credit_field):
 	balance += row.get(debit_field, 0) - row.get(credit_field, 0)
