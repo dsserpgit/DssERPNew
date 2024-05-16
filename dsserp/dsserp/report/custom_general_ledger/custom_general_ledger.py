@@ -200,6 +200,10 @@ def get_gl_entries(filters, accounting_dimensions):
 		"""
 		select
 			name as gl_entry, posting_date, account, party_type, party,
+			case
+			when (party_type = "Employee") then (select emp.employee_name from `tabEmployee` emp where emp.name = party)
+			else null
+			end as party_name,
 			voucher_type, voucher_no, {dimension_fields}
 			cost_center, project, {transaction_currency_fields}
 			against_voucher_type, against_voucher, account_currency,
@@ -502,6 +506,7 @@ def get_result_as_list(data, filters):
 	inv_details = get_supplier_invoice_details()
 	extra_fields = get_extra_fields()
 	expense_claim_wise_employee = get_expense_calim_wise_employee()
+	supplier_map = get_supplier_wise_vouchers()
 
 	for d in data:
 		if not d.get("posting_date"):
@@ -514,6 +519,15 @@ def get_result_as_list(data, filters):
 		d["bill_no"] = inv_details.get(d.get("against_voucher"), "")
 		d.update(extra_fields.get(d.get("voucher_no"), {}).get(d.get("account"), {}))
 
+		if d.get("voucher_no") in supplier_map and not d.get("party") and not d.get("party_type") and d.get("voucher_type") in ["Purchase Invoice", "Purchase Receipt", "Payment Entry"]:
+			d["party_type"] = "Supplier"
+			d["party"] = supplier_map[d["voucher_no"]]
+
+		if d.get("party_type") == "Employee":
+			d["party"] = f"""{d["party"]}: {d.get("party_name")}"""
+		if d.get("voucher_type") == "Expense Claim":
+			if d.get("against") and frappe.db.exists("Employee", d["against"]):
+				d["against"] = expense_claim_wise_employee.get(d["voucher_no"]).split(": ")[1]
 		if d.get("voucher_type") == "Expense Claim" and not d.get("party_type") and not d.get("party"):
 			d["party_type"] = "Employee"
 			d["party"] = expense_claim_wise_employee.get(d["voucher_no"])
@@ -608,9 +622,22 @@ def get_extra_fields():
 
 def get_expense_calim_wise_employee():
 	exp_clm_wise_emp_map = {}
-	for i in frappe.get_all("Expense Claim", fields=["name", "employee"]):
-		exp_clm_wise_emp_map[i["name"]] = i["employee"]
+	for i in frappe.get_all("Expense Claim", fields=["name", "employee", "employee_name"]):
+		exp_clm_wise_emp_map[i["name"]] = f"""{i["employee"]}: {i["employee_name"]}"""
 	return exp_clm_wise_emp_map
+
+def get_supplier_wise_vouchers():
+	supplier_map = {}
+	for i in frappe.get_all("Purchase Invoice", fields = ["name", "supplier"]):
+		supplier_map[i["name"]] = i["supplier"]
+	
+	for i in frappe.get_all("Purchase Receipt", fields = ["name", "supplier"]):
+		supplier_map[i["name"]] = i["supplier"]
+	
+	for i in frappe.get_all("Payment Entry", filters = {"party_type": "Supplier"}, fields = ["name", "party"]):
+		supplier_map[i["name"]] = i["party"]
+	
+	return supplier_map
 
 def get_balance(row, balance, debit_field, credit_field):
 	balance += row.get(debit_field, 0) - row.get(credit_field, 0)

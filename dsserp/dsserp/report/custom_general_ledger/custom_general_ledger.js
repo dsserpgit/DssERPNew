@@ -234,13 +234,13 @@ frappe.query_reports["Custom General Ledger"] = {
 		}
 	},
 	formatter: function(value, row, column, data, default_formatter) {
-		if(column.fieldname == "party" && frappe.query_reports["Custom General Ledger"]["employee_name_map"][value]){
+		if(value && column.fieldname == "party" && frappe.query_reports["Custom General Ledger"]["employee_name_map"][value.split(": ")[0]]){
 			var a=document.createElement("a")
-			a.href = `/app/employee/${value}`
-			a.innerText = frappe.query_reports["Custom General Ledger"]["employee_name_map"][value]
+			a.href = `/app/employee/${value.split(": ")[0]}`
+			a.innerText = frappe.query_reports["Custom General Ledger"]["employee_name_map"][value.split(": ")[0]]
 			a.setAttribute("data-doctype", "Employee")
-			a.setAttribute("data-name", value)
-			a.setAttribute("data-value", value)
+			a.setAttribute("data-name", value.split(": ")[0])
+			a.setAttribute("data-value", value.split(": ")[0])
 			var d=document.createElement("div")
 			d.appendChild(a)
 			value = d.innerHTML
